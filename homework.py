@@ -119,6 +119,7 @@ def main():
             message = f'Сбой в работе программы: {error}'
         time.sleep(RETRY_PERIOD)
 
-        
+
 if __name__ == '__main__':
     main()
+    
