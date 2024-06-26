@@ -49,7 +49,7 @@ def send_message(bot, message):
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message)
-        logging.debug(f'Message sent successfully')
+        logging.debug('Message sent successfully')
     except Exception as error:
         logging.error(f'{error} during sending the message')
 
@@ -63,7 +63,7 @@ def get_api_answer(timestamp):
         response = homework_statuses.json()
         if not type(response) is dict:
             raise exceptions.FormatAnswerIsNotValid('The format is not valid')
-        
+
         if not homework_statuses.status_code == 200:
             raise exceptions.HTTPStatusIsNotOK('HTTPStatus is not 200')
     except requests.RequestException:
@@ -75,13 +75,10 @@ def check_response(response):
     """Checks params in the API response."""
     if not type(response) is dict:
         raise TypeError
-
     if 'homeworks' not in response:
         raise KeyError
-    
     if not type(response['homeworks']) is list:
         raise TypeError
-
     if not response['homeworks']:
         logging.debug('No status changes')
 
@@ -89,14 +86,12 @@ def check_response(response):
 def parse_status(homework):
     """Returns the satus of last homework."""
     if 'homework_name' not in homework:
-        raise KeyError('homework_name отсутсвует в словаре')
-    
-    if (not homework['status'] or 
-            homework['status'] not in HOMEWORK_VERDICTS):
+        raise KeyError('homework_name is not in dict')
+    if (not homework['status']
+            or homework['status'] not in HOMEWORK_VERDICTS):
         raise exceptions.HomeworkStatusIsNotDocumented(
             'The status of homework is not documented'
         )
-    
     last_homework_status = homework['status']
     homework_name = homework['homework_name']
     verdict = HOMEWORK_VERDICTS[last_homework_status]
