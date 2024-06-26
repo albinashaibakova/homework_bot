@@ -37,14 +37,14 @@ logging.basicConfig(
 
 
 def check_tokens():
-    """Checking the availability of environment variables"""
+    """Checking the availability of environment variables."""
     if not (PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID):
         logging.critical('Env variables are not set')
         sys.exit()
-        
+
 
 def send_message(bot, message):
-    """Sends message to Telegram chat"""
+    """Sends message to Telegram chat."""
     try:
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
@@ -55,7 +55,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Returns the API answer"""
+    """Returns the API answer."""
     try:
         homework_statuses = requests.get(ENDPOINT,
                                          headers=HEADERS,
@@ -63,7 +63,7 @@ def get_api_answer(timestamp):
         response = homework_statuses.json()
         if not type(response) is dict:
             raise exceptions.FormatAnswerIsNotValid('The format is not valid')
-    
+        
         if not homework_statuses.status_code == 200:
             raise exceptions.HTTPStatusIsNotOK('HTTPStatus is not 200')
     except requests.RequestException:
@@ -72,27 +72,30 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Checks params in the API response"""
+    """Checks params in the API response."""
     if not type(response) is dict:
         raise TypeError
-    
+
     if 'homeworks' not in response:
         raise KeyError
     
     if not type(response['homeworks']) is list:
         raise TypeError
-    
+
     if not response['homeworks']:
         logging.debug('No status changes')
-    
-    
+
+
 def parse_status(homework):
-    """Returns the satus of last homework"""
+    """Returns the satus of last homework."""
     if 'homework_name' not in homework:
         raise KeyError('homework_name отсутсвует в словаре')
     
-    if not homework['status'] or homework['status'] not in HOMEWORK_VERDICTS:
-        raise exceptions.HomeworkStatusIsNotDocumented('The status of homework is not documented')
+    if (not homework['status'] or 
+            homework['status'] not in HOMEWORK_VERDICTS):
+        raise exceptions.HomeworkStatusIsNotDocumented(
+            'The status of homework is not documented'
+        )
     
     last_homework_status = homework['status']
     homework_name = homework['homework_name']
@@ -101,11 +104,11 @@ def parse_status(homework):
 
 
 def main():
-    """Main func of the bot"""
+    """Main func of the bot."""
     status = 'send'
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    
+
     while True:
         try:
             check_tokens()
@@ -120,7 +123,7 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
         time.sleep(RETRY_PERIOD)
-    
 
+        
 if __name__ == '__main__':
     main()
