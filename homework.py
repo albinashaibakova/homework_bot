@@ -1,11 +1,12 @@
-from dotenv import load_dotenv
-import logging
 import os
-import requests
 import sys
 import time
 
-from telebot import TeleBot
+from dotenv import load_dotenv
+from http import HTTPStatus
+import logging
+import requests
+import telebot
 
 import exceptions
 
@@ -38,20 +39,35 @@ logging.basicConfig(
 
 def check_tokens():
     """Checking the availability of environment variables."""
-    if not (PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID):
-        logging.critical('Env variables are not set')
-        sys.exit()
+    token_flag = True
 
+    if not PRACTICUM_TOKEN:
+        token_flag = False
+        logging.critical('PRACTICUM_TOKEN is not set')
+
+    if not TELEGRAM_TOKEN:
+        token_flag = False
+        logging.critical('TELEGRAM_TOKEN is not set')
+
+    if not TELEGRAM_CHAT_ID:
+        token_flag = False
+        logging.critical('TELEGRAM_CHAT_ID is not set')
+
+    return token_flag
+        
 
 def send_message(bot, message):
     """Sends message to Telegram chat."""
+    message_flag = True
     try:
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message)
         logging.debug('Message sent successfully')
-    except Exception as error:
-        logging.error(f'{error} during sending the message')
+    except (telebot.apihelper.ApiException,
+            requests.RequestException):
+        message_flag = False
+    return message_flag
 
 
 def get_api_answer(timestamp):
@@ -60,63 +76,79 @@ def get_api_answer(timestamp):
         homework_statuses = requests.get(ENDPOINT,
                                          headers=HEADERS,
                                          params={'from_date': timestamp})
-        response = homework_statuses.json()
-        if not type(response) is dict:
-            raise exceptions.FormatAnswerIsNotValid('The format is not valid')
+    except requests.RequestException as error:
+        return error
 
-        if not homework_statuses.status_code == 200:
-            raise exceptions.HTTPStatusIsNotOK('HTTPStatus is not 200')
-    except requests.RequestException:
-        logging.error('Something went wrong')
+    if homework_statuses.status_code != HTTPStatus.OK:
+        raise exceptions.HTTPStatusIsNotOK('The response status is Not 200')
+
+    response = homework_statuses.json()
     return response
 
-
+        
 def check_response(response):
     """Checks params in the API response."""
-    if not type(response) is dict:
-        raise TypeError
+    if not isinstance(response, dict):
+        raise TypeError('Response is not an instance of '
+                        'a subtype of the dict type')
+
     if 'homeworks' not in response:
-        raise KeyError
-    if not type(response['homeworks']) is list:
-        raise TypeError
-    if not response['homeworks']:
-        logging.debug('No status changes')
+        raise KeyError('Response does not have valid params:'
+                       'homeworks')
+
+    if not isinstance(response['homeworks'], list):
+        raise TypeError('Param homeworks is not an instance'
+                        ' of a subtype of the list type')
 
 
 def parse_status(homework):
     """Returns the satus of last homework."""
+    status = homework['status']
+
     if 'homework_name' not in homework:
         raise KeyError('homework_name is not in dict')
-    if (not homework['status']
-            or homework['status'] not in HOMEWORK_VERDICTS):
+
+    if not status:
+        raise exceptions.HomeworkStatusIsNotDocumented(
+            'The homework does not have a status'
+        )
+    
+    if status not in HOMEWORK_VERDICTS:
         raise exceptions.HomeworkStatusIsNotDocumented(
             'The status of homework is not documented'
         )
-    last_homework_status = homework['status']
+
     homework_name = homework['homework_name']
-    verdict = HOMEWORK_VERDICTS[last_homework_status]
+    verdict = HOMEWORK_VERDICTS[status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Main func of the bot."""
-    status = 'send'
-    bot = TeleBot(token=TELEGRAM_TOKEN)
+    bot = telebot.TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-
+    status = 'send'
     while True:
         try:
-            check_tokens()
+            if not check_tokens():
+                sys.exit()
             response = get_api_answer(timestamp)
             check_response(response)
-            homework = response['homeworks'][0]
-            new_status = homework['status']
-            if new_status != status:
-                message = parse_status(homework)
-                send_message(bot, message)
-                status = new_status
+            if not response['homeworks']:
+                logging.debug('No status changes')
+            else:
+                homework = response['homeworks'][0]
+                new_status = homework['status']
+                if new_status != status:
+                    message = parse_status(homework)
+                    send_message_success = send_message(bot, message)
+                    if send_message_success:
+                        status = new_status
+                    else:
+                        logging.error('Error during sending the message')
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
+            message = f'Error while running the program: {error}'
+            logging.error(message)
         time.sleep(RETRY_PERIOD)
 
 

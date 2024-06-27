@@ -1,8 +1,3 @@
-class FormatAnswerIsNotValid(Exception):
-    """Raised when the format of response is not valid."""
-    pass
-
-
 class ResponseDontHaveValidParams(Exception):
     """Raised when response does not have valid parameters."""
     pass
