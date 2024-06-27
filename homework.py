@@ -54,7 +54,7 @@ def check_tokens():
         logging.critical('TELEGRAM_CHAT_ID is not set')
 
     return token_flag
-        
+
 
 def send_message(bot, message):
     """Sends message to Telegram chat."""
@@ -85,7 +85,7 @@ def get_api_answer(timestamp):
     response = homework_statuses.json()
     return response
 
-        
+
 def check_response(response):
     """Checks params in the API response."""
     if not isinstance(response, dict):
@@ -112,7 +112,7 @@ def parse_status(homework):
         raise exceptions.HomeworkStatusIsNotDocumented(
             'The homework does not have a status'
         )
-    
+
     if status not in HOMEWORK_VERDICTS:
         raise exceptions.HomeworkStatusIsNotDocumented(
             'The status of homework is not documented'
