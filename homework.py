@@ -1,10 +1,10 @@
+from http import HTTPStatus
+import logging
 import os
 import sys
 import time
 
 from dotenv import load_dotenv
-from http import HTTPStatus
-import logging
 import requests
 import telebot
 
@@ -58,16 +58,15 @@ def check_tokens():
 
 def send_message(bot, message):
     """Sends message to Telegram chat."""
-    message_flag = True
     try:
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message)
         logging.debug('Message sent successfully')
+        return True
     except (telebot.apihelper.ApiException,
             requests.RequestException):
-        message_flag = False
-    return message_flag
+        return False
 
 
 def get_api_answer(timestamp):
@@ -82,8 +81,7 @@ def get_api_answer(timestamp):
     if homework_statuses.status_code != HTTPStatus.OK:
         raise exceptions.HTTPStatusIsNotOK('The response status is Not 200')
 
-    response = homework_statuses.json()
-    return response
+    return homework_statuses.json()
 
 
 def check_response(response):
@@ -125,24 +123,24 @@ def parse_status(homework):
 
 def main():
     """Main func of the bot."""
+    if not check_tokens():
+        sys.exit()
     bot = telebot.TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     status = 'send'
     while True:
         try:
-            if not check_tokens():
-                sys.exit()
             response = get_api_answer(timestamp)
             check_response(response)
-            if not response['homeworks']:
+            homeworks = response['homeworks']
+            if not homeworks:
                 logging.debug('No status changes')
             else:
-                homework = response['homeworks'][0]
-                new_status = homework['status']
+                last_homework = homeworks[0]
+                new_status = last_homework['status']
                 if new_status != status:
-                    message = parse_status(homework)
-                    send_message_success = send_message(bot, message)
-                    if send_message_success:
+                    message = parse_status(last_homework)
+                    if send_message(bot, message):
                         status = new_status
                     else:
                         logging.error('Error during sending the message')
